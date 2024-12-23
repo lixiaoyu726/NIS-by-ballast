@@ -1,0 +1,7 @@
+data/*
+.vscode/settings.json
+.vscode/env.txt
+__pycache__/*
+
+env_region.py
+process.py
