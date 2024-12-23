@@ -17,7 +17,7 @@ PLACE_DIR = DATA_DIR.joinpath("places.lst")
 VESSEL_DIR = DATA_DIR.joinpath("vessels_1819.txt")
 
 
-MEOW_DIR = DATA_DIR.joinpath("MEOW/meow_eco.shp")
+MEOW_DIR = Path(__file__).parent.joinpath("MEOW/meow_ecos.shp")
 FEOW_DIR = DATA_DIR.joinpath("FEOW/feow_hydrosheds.shp")
 GIVEN_FILE_DIR = DATA_DIR.joinpath("Places_allportdata_mergedSept2017.csv")
 
@@ -264,7 +264,7 @@ class VesselInfo:
 
 
 class PortParser:
-    def __init__(self, port_info_dir: str) -> None:
+    def __init__(self, port_info_dir: str=PLACE_DIR) -> None:
         with open(port_info_dir, "r") as f:
             place_info = f.readlines()
         labels = place_info[0].strip().split("|")
@@ -275,6 +275,17 @@ class PortParser:
         # self.place_info['LONGITUDE DECIMAL'] = self.place_info['LONGITUDE DECIMAL'].astype(float)
         self.env_file = pd.read_csv(GIVEN_FILE_DIR)
         self.env_file["ID"] = self.env_file["ID"].astype(int)
+        self.meow_info = gpd.read_file(MEOW_DIR)
+    
+    def check_meow_region(self, port_id:int) -> str:
+        port = self.get_port(int(port_id))
+        if port is  None:
+            return None
+        Q = self.meow_info[self.meow_info['ECOREGION']==port.meow_region]
+        if len(Q) == 1:
+            return Q.iloc[0]['REALM']
+        return None
+
 
     def get_port(self, data_base_id: int) -> PortInfo:
         base_info = self.place_info[self.place_info["PLACE ID"] == data_base_id]
