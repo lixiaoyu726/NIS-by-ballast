@@ -100,7 +100,7 @@ class AggregateRisk:
             o_port_realm = port_parser.check_meow_region(o_port_id)
             _bio_risk = bio_risk_dict[o_port_realm]
             _ballast_risk = ballast_risk_dict[o_port_realm]
-            _bio_risk, _ballast_risk = self.iter_and_multi(Q, _bio_risk, _ballast_risk)
+            _ballast_risk, _bio_risk = self.iter_and_multi(Q, _ballast_risk, _bio_risk)
             bio_risk_dict[o_port_realm] = _bio_risk
             ballast_risk_dict[o_port_realm] = _ballast_risk
         
@@ -108,29 +108,44 @@ class AggregateRisk:
             bio_risk_dict[key] = 1.0 - bio_risk_dict[key]
         for key in ballast_risk_dict:
             ballast_risk_dict[key] = 1.0 - ballast_risk_dict[key]
-        return bio_risk_dict, ballast_risk_dict
+        return ballast_risk_dict, bio_risk_dict,
 
     def aggregate_by_country(self, port_name: str='Singapore') -> tp.Tuple[tp.Dict[str, float]]:
         # given desti_port
         # output biofouling/ballast risk organized by origin port country
-        F = self.record[
+        
+        # agg ballast risk
+        F_ballast = self.record[
             (self.record["d_port"] == port_name)
-            & (
+            & 
                 (self.record["ballast_risk"] != 0.0)
-                | (self.record["biofouling_risk"] != 0.0)
-            )
-        ]        
-        origin_country_list = list(set(F["o_port_country"].values))
-        bio_risk_dict = dict()
+
+        ]   
+        origin_country_list = list(set(F_ballast["o_port_country"].values))
         ballast_risk_dict = dict()
         for origin_country in origin_country_list:
-            Q = F[F["o_port_country"] == origin_country]
-            _bio_risk = 1.0
+            Q = F_ballast[F_ballast["o_port_country"] == origin_country]
             _ballast_risk = 1.0
-            _bio_risk, _ballast_risk = self.iter_and_multi(Q, _bio_risk, _ballast_risk)
-            bio_risk_dict[origin_country] = 1.0 - _bio_risk
+            _bio_risk = 1.0
+            _ballast_risk, _ = self.iter_and_multi(Q, _ballast_risk, _bio_risk)
             ballast_risk_dict[origin_country] = 1.0 - _ballast_risk
-        return bio_risk_dict, ballast_risk_dict
+            
+        # aggregate biofouling risk    
+        F_bio = self.record[
+            (self.record["d_port"] == port_name)
+            & 
+                (self.record["biofouling_risk"] != 0.0)
+
+        ]            
+        origin_country_list = list(set(F_bio["o_port_country"].values))
+        bio_risk_dict = dict()
+        for origin_country in origin_country_list:
+            Q = F_bio[F_bio['o_port_country'] == origin_country]
+            _ballast_risk = 1.0
+            _bio_risk = 1.0
+            _, _bio_risk = self.iter_and_multi(Q, _ballast_risk, _bio_risk)
+            bio_risk_dict[origin_country] = 1.0 - _bio_risk
+        return ballast_risk_dict, bio_risk_dict
             
     @staticmethod
     def iter_and_multi(
@@ -140,7 +155,7 @@ class AggregateRisk:
             ba_r = line["ballast_risk"]
             bio_r = line["biofouling_risk"]
             if ~pd.isna(ba_r):
-                agg_ballast_risk *= 1 - ba_r
+                agg_ballast_risk *= (1 - ba_r)
             if ~pd.isna(bio_r):
-                agg_biofouling_risk *= 1 - bio_r
+                agg_biofouling_risk *= (1 - bio_r)
         return agg_ballast_risk, agg_biofouling_risk
